@@ -1,0 +1,23 @@
+{
+  "cxxNamespace": ["rnsak"],
+  "ios": {
+    "iosModuleName": "RnSak"
+  },
+  "android": {
+    "androidNamespace": ["rnsak"],
+    "androidCxxLibName": "rnsak"
+  },
+  "autolinking": {
+    "RnSak": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "RnSak"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "RnSak"
+      }
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}
