@@ -10,6 +10,11 @@
             "types": "./lib/typescript/src/index.d.ts",
             "default": "./lib/module/index.js"
         },
+        "./rest": {
+            "source": "./src/rest/index.ts",
+            "types": "./lib/typescript/src/rest/index.d.ts",
+            "default": "./lib/module/rest/index.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [
@@ -70,7 +75,6 @@
         "@react-native/jest-preset": "0.85.0",
         "@tanstack/react-query": "^5.101.0",
         "@types/react": "^19.2.0",
-        "babel-plugin-transform-typescript-metadata": "^0.4.0",
         "del-cli": "^7.0.0",
         "jest": "^29.7.0",
         "nitrogen": "^0.35.9",
@@ -131,7 +135,6 @@
         "version": "0.62.2"
     },
     "dependencies": {
-        "axios": "^1.18.0",
-        "reflect-metadata": "^0.2.2"
+        "axios": "^1.18.0"
     }
 }

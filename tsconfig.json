@@ -4,6 +4,9 @@
         "paths": {
             "rn-sak": [
                 "./src/index"
+            ],
+            "rn-sak/rest": [
+                "./src/rest/index"
             ]
         },
         "allowUnreachableCode": false,
@@ -25,7 +28,7 @@
         "noImplicitReturns": true,
         "noUncheckedIndexedAccess": true,
         "noUnusedLocals": true,
-        "noUnusedParameters": true,
+        "noUnusedParameters": false,
         "resolveJsonModule": true,
         "skipLibCheck": true,
         "strict": true,

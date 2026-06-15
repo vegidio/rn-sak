@@ -5,22 +5,11 @@ import type { AxiosRequestConfig } from 'axios';
 
 export type HttpVerb = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-export type ParamRole = 'path' | 'query' | 'body' | 'header';
-
-export type ParamMeta = {
-    role: ParamRole;
-    /** Name for `path`/`query`/`header`; ignored for `body`. */
-    name?: string;
-    /** Position of the parameter in the method signature. */
-    index: number;
-};
-
 export type MethodMeta = {
     methodName: string;
     verb: HttpVerb;
     /** Path template, e.g. `/users/:id`. */
     path: string;
-    params: ParamMeta[];
 };
 
 /** Keyed by method name. */
@@ -30,7 +19,11 @@ export type ClassMeta = Map<string, MethodMeta>;
 
 export type Ctor<T> = new (...args: never[]) => T;
 
-/** Variables passed to a hook (query) or to `mutate` (mutation). */
+/**
+ * Loose runtime container for request variables, consumed structurally by the
+ * client and hook factories. Each contract method declares its own precise
+ * `vars` shape; this type is the runtime erasure of all of them.
+ */
 export type RequestVars = {
     params?: Record<string, string | number>;
     query?: Record<string, string | number | boolean | undefined>;
@@ -55,16 +48,29 @@ export type RestApiConfig = {
 
 // --- Type-level hook mapping ---------------------------------------------------
 
-export type QueryHook<R> = (
-    vars?: RequestVars,
-    options?: Omit<UseQueryOptions<R, Error, R>, 'queryKey' | 'queryFn'>,
+/**
+ * Query hook. `P` is the contract method's parameter tuple (e.g.
+ * `[vars: { params: { id: string } }]`), forwarded verbatim so the hook keeps
+ * the exact `vars` shape — including whether it is required or optional — before
+ * the trailing TanStack options argument.
+ */
+export type QueryHook<P extends readonly unknown[], R> = (
+    ...args: [...P, options?: Omit<UseQueryOptions<R, Error, R>, 'queryKey' | 'queryFn'>]
 ) => UseQueryResult<R, Error>;
 
-export type MutationHook<R> = (
-    options?: Omit<UseMutationOptions<R, Error, RequestVars>, 'mutationFn'>,
-) => UseMutationResult<R, Error, RequestVars>;
+/**
+ * Mutation hook. Mutation variables are passed to `mutate`, not to the hook, so
+ * `V` (the contract method's `vars` type) parameterizes the mutation result.
+ */
+export type MutationHook<V, R> = (
+    options?: Omit<UseMutationOptions<R, Error, V>, 'mutationFn'>,
+) => UseMutationResult<R, Error, V>;
 
 type ResultOf<F> = F extends (...args: never[]) => infer R ? R : never;
+
+/** First parameter of a contract method (its `vars`), or `void` when it takes none. */
+// biome-ignore lint/suspicious/noConfusingVoidType: `void` is the correct mutation-variables type — it lets `mutate()` be called with no argument.
+type VarsArg<P extends readonly unknown[]> = P extends readonly [infer V, ...unknown[]] ? V : void;
 
 /** Method-name prefixes that statically map to a query hook. */
 type QueryPrefix = 'get' | 'list' | 'find' | 'fetch' | 'read' | 'search';
@@ -78,8 +84,10 @@ type IsQuery<Name extends string, Q extends string, M extends string> = Name ext
       ? false
       : IsQueryName<Name>;
 
-type HookFor<F, Name extends string, Q extends string, M extends string> =
-    IsQuery<Name, Q, M> extends true ? QueryHook<ResultOf<F>> : MutationHook<ResultOf<F>>;
+type HookFor<F extends (...args: never[]) => unknown, Name extends string, Q extends string, M extends string> =
+    IsQuery<Name, Q, M> extends true
+        ? QueryHook<Parameters<F>, ResultOf<F>>
+        : MutationHook<VarsArg<Parameters<F>>, ResultOf<F>>;
 
 export type QueriesOf<Cfg> = Cfg extends { queries: infer Q extends readonly string[] } ? Q[number] : never;
 

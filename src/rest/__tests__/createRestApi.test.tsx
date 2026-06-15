@@ -3,7 +3,7 @@ import type { AxiosInstance } from 'axios';
 import type { MethodMeta } from '../types';
 import { buildRequest, execute } from '../client';
 import { createRestApi } from '../createRestApi';
-import { Body, Delete, Get, Path, Post, Put, Query, stub } from '../decorators';
+import { Delete, Get, Post, Put } from '../decorators';
 import { getClassMeta } from '../registry';
 
 type User = {
@@ -15,34 +15,24 @@ type CreateUserDto = {
     name: string;
 };
 
-// Contract params are unused in the body (decorators carry the real names), so
-// they are `_`-prefixed to satisfy `noUnusedParameters`. See README guidance.
+// Each endpoint is a function-typed field declaring its request variables as a single typed `vars` object.
+// The field is never assigned or read — `createRestApi` reads the decorator metadata and the field's type
+// to build hooks — so the definite-assignment `!:` declaration carries no body.
 class UserApi {
     @Get('/users')
-    listUsers(@Query('page') _page: number): User[] {
-        return stub();
-    }
+    listUsers!: (vars?: { query?: { page?: number } }) => User[];
 
     @Get('/users/:id')
-    getUser(@Path('id') _id: string): User {
-        return stub();
-    }
+    getUser!: (vars: { params: { id: string } }) => User;
 
     @Post('/users')
-    createUser(@Body() _body: CreateUserDto): User {
-        return stub();
-    }
+    createUser!: (vars: { body: CreateUserDto }) => User;
 
     @Put('/users/:id')
-    updateUser(@Path('id') _id: string, @Body() _body: User): User {
-        return stub();
-    }
+    updateUser!: (vars: { params: { id: string }; body: User }) => User;
 
     @Delete('/users/:id')
-    deleteUser(@Path('id') _id: string): void {
-        // void methods just call stub() (no `return`, to satisfy linters).
-        stub();
-    }
+    deleteUser!: (vars: { params: { id: string } }) => void;
 }
 
 const methodMeta = (name: string): MethodMeta => {
@@ -52,18 +42,14 @@ const methodMeta = (name: string): MethodMeta => {
 };
 
 describe('decorator metadata', () => {
-    it('collects verb, path and parameter roles', () => {
+    it('collects verb and path per method', () => {
         const meta = getClassMeta(UserApi);
         expect(meta).toBeDefined();
 
         expect(meta?.get('getUser')).toMatchObject({ verb: 'GET', path: '/users/:id' });
-        expect(meta?.get('getUser')?.params).toContainEqual({ role: 'path', name: 'id', index: 0 });
-
-        expect(meta?.get('listUsers')?.params).toContainEqual({ role: 'query', name: 'page', index: 0 });
-
+        expect(meta?.get('listUsers')).toMatchObject({ verb: 'GET', path: '/users' });
         expect(meta?.get('createUser')?.verb).toBe('POST');
-        expect(meta?.get('createUser')?.params).toContainEqual({ role: 'body', index: 0 });
-
+        expect(meta?.get('updateUser')?.verb).toBe('PUT');
         expect(meta?.get('deleteUser')?.verb).toBe('DELETE');
     });
 });
