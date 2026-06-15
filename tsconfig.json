@@ -1,28 +1,35 @@
 {
-  "compilerOptions": {
-    "rootDir": ".",
-    "paths": {
-      "rn-sak": ["./src/index"]
-    },
-    "allowUnreachableCode": false,
-    "allowUnusedLabels": false,
-    "customConditions": ["react-native-strict-api"],
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "jsx": "react-jsx",
-    "lib": ["ESNext"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "target": "ESNext",
-    "verbatimModuleSyntax": true
-  }
+    "compilerOptions": {
+        "rootDir": ".",
+        "paths": {
+            "rn-sak": [
+                "./src/index"
+            ]
+        },
+        "allowUnreachableCode": false,
+        "allowUnusedLabels": false,
+        "customConditions": [
+            "react-native-strict-api"
+        ],
+        "esModuleInterop": true,
+        "experimentalDecorators": true,
+        "forceConsistentCasingInFileNames": true,
+        "jsx": "react-jsx",
+        "lib": [
+            "ESNext"
+        ],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "noEmit": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "noUncheckedIndexedAccess": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "ESNext",
+        "verbatimModuleSyntax": true
+    }
 }

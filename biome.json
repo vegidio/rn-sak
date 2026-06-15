@@ -44,6 +44,9 @@
         }
     },
     "javascript": {
+        "parser": {
+            "unsafeParameterDecoratorsEnabled": true
+        },
         "formatter": {
             "quoteStyle": "single",
             "jsxQuoteStyle": "single"
