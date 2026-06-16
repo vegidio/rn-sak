@@ -28,8 +28,8 @@ export const enforceMaxEntries = (queryClient: QueryClient, apiId: string, maxEn
 /**
  * Install a permanent cache subscriber that enforces `maxEntries` for `apiId` on the
  * given client, idempotently — only the first call per (client, apiId) subscribes. The
- * subscriber reacts to `added` events (the only count-growing event) and the returned
- * unsubscribe is intentionally discarded.
+ * subscriber reacts only to this API's `added` events (the one count-growing event) and
+ * the returned unsubscribe is intentionally discarded.
  */
 export const installEviction = (queryClient: QueryClient, apiId: string, maxEntries: number): void => {
     let installed = registry.get(queryClient);
@@ -41,7 +41,9 @@ export const installEviction = (queryClient: QueryClient, apiId: string, maxEntr
     installed.add(apiId);
 
     queryClient.getQueryCache().subscribe((event) => {
-        if (event.type === 'added') enforceMaxEntries(queryClient, apiId, maxEntries);
+        if (event.type === 'added' && event.query.queryKey[0] === apiId) {
+            enforceMaxEntries(queryClient, apiId, maxEntries);
+        }
     });
     enforceMaxEntries(queryClient, apiId, maxEntries);
 };

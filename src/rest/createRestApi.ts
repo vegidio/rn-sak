@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 import type {
     CacheOverride,
+    CachePolicy,
     Ctor,
     MethodMeta,
     MutationsOf,
@@ -51,33 +52,22 @@ const resolveQueryArgs = (
 };
 
 const makeQueryHook =
-    (
-        client: AxiosInstance,
-        apiId: string,
-        meta: MethodMeta,
-        defaults: RetryPolicy,
-        apiTtl?: number,
-        maxEntries?: number,
-    ) =>
+    (client: AxiosInstance, apiId: string, meta: MethodMeta, defaults: RetryPolicy, cache?: CachePolicy) =>
     (arg1?: RequestVars | QueryOptions, arg2?: QueryOptions) => {
         const queryClient = useQueryClient();
         const { vars, options } = resolveQueryArgs(arg1, arg2);
         const { cache: reqCache, ...rest } = options ?? {};
 
-        // `cache: false` disables caching for this call (ignoring the API default);
-        // otherwise a per-request ttl wins over the API default. Both map to TanStack's
-        // staleTime + gcTime. An explicit staleTime/gcTime in `rest` still wins (spread last).
-        let ttlOpts: { staleTime: number; gcTime: number } | Record<string, never> = {};
-        if (reqCache === false) {
-            ttlOpts = { staleTime: 0, gcTime: 0 };
-        } else {
-            const effectiveTtl = reqCache?.ttl ?? apiTtl;
-            if (effectiveTtl !== undefined) ttlOpts = { staleTime: effectiveTtl, gcTime: effectiveTtl };
-        }
+        // Per-request `cache` overrides the API default: `false` disables caching, a `ttl`
+        // wins over `cache.ttl`. The chosen ttl maps to TanStack's staleTime + gcTime; an
+        // explicit staleTime/gcTime in `rest` still wins (spread last).
+        const effectiveTtl = reqCache === false ? 0 : (reqCache?.ttl ?? cache?.ttl);
+        const ttlOpts: Partial<Pick<UseQueryOptions<unknown, Error, unknown>, 'staleTime' | 'gcTime'>> =
+            effectiveTtl !== undefined ? { staleTime: effectiveTtl, gcTime: effectiveTtl } : {};
 
         useEffect(() => {
-            if (maxEntries === undefined) return;
-            installEviction(queryClient, apiId, maxEntries);
+            if (cache?.maxEntries === undefined) return;
+            installEviction(queryClient, apiId, cache.maxEntries);
         }, [queryClient]);
 
         return useQuery({
@@ -135,14 +125,11 @@ export const createRestApi = <T extends object, const Cfg extends RestApiConfig>
     if (config.retry !== undefined) defaults.retry = config.retry;
     if (config.retryDelay !== undefined) defaults.retryDelay = config.retryDelay;
 
-    // Cache policy is query-only; mutations are never cached.
-    const apiTtl = config.cache?.ttl;
-    const maxEntries = config.cache?.maxEntries;
-
     for (const methodMeta of meta.values()) {
         const key = `use${pascal(methodMeta.methodName)}`;
         hooks[key] = isQuery(methodMeta, config)
-            ? makeQueryHook(client, apiId, methodMeta, defaults, apiTtl, maxEntries)
+            ? // Cache policy is query-only; mutations are never cached.
+              makeQueryHook(client, apiId, methodMeta, defaults, config.cache)
             : makeMutationHook(client, apiId, methodMeta, defaults);
     }
 
