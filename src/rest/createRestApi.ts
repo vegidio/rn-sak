@@ -28,6 +28,7 @@ const makeMutationHook = (client: AxiosInstance, apiId: string, meta: MethodMeta
     return (options?: Omit<UseMutationOptions<unknown, Error, RequestVars>, 'mutationFn'>) => {
         const queryClient = useQueryClient();
         const { onSuccess, ...rest } = options ?? {};
+
         return useMutation({
             mutationFn,
             ...rest,
@@ -54,9 +55,7 @@ export const createRestApi = <T extends object, const Cfg extends RestApiConfig>
     config: Cfg,
 ): RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>> => {
     const meta = getClassMeta(ApiClass);
-    if (!meta) {
-        throw new Error(`No REST metadata found on ${ApiClass.name}. Did the decorators run?`);
-    }
+    if (!meta) throw new Error(`No REST metadata found on ${ApiClass.name}. Did the decorators run?`);
 
     const client = createAxios(config);
     const apiId = ApiClass.name;

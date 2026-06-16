@@ -6,21 +6,25 @@ const registry = new WeakMap<object, ClassMeta>();
 
 const classMeta = (ctor: object): ClassMeta => {
     let meta = registry.get(ctor);
+
     if (!meta) {
         meta = new Map();
         registry.set(ctor, meta);
     }
+
     return meta;
 };
 
 const methodMeta = (ctor: object, methodName: string): MethodMeta => {
     const meta = classMeta(ctor);
     let m = meta.get(methodName);
+
     if (!m) {
         // Verb/path are filled in by `setRoute` when the method decorator runs.
         m = { methodName, verb: 'GET', path: '' };
         meta.set(methodName, m);
     }
+
     return m;
 };
 

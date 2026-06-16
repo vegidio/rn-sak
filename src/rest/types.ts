@@ -20,9 +20,8 @@ export type ClassMeta = Map<string, MethodMeta>;
 export type Ctor<T> = new (...args: never[]) => T;
 
 /**
- * Loose runtime container for request variables, consumed structurally by the
- * client and hook factories. Each contract method declares its own precise
- * `vars` shape; this type is the runtime erasure of all of them.
+ * Loose runtime container for request variables, consumed structurally by the client and hook factories. Each contract
+ * method declares its own precise `vars` shape; this type is the runtime erasure of all of them.
  */
 export type RequestVars = {
     params?: Record<string, string | number>;
@@ -68,7 +67,7 @@ export type MutationHook<V, R> = (
 
 type ResultOf<F> = F extends (...args: never[]) => infer R ? R : never;
 
-/** First parameter of a contract method (its `vars`), or `void` when it takes none. */
+/** The first parameter of a contract method (its `vars`), or `void` when it takes none. */
 // biome-ignore lint/suspicious/noConfusingVoidType: `void` is the correct mutation-variables type — it lets `mutate()` be called with no argument.
 type VarsArg<P extends readonly unknown[]> = P extends readonly [infer V, ...unknown[]] ? V : void;
 
@@ -77,7 +76,7 @@ type QueryPrefix = 'get' | 'list' | 'find' | 'fetch' | 'read' | 'search';
 
 type IsQueryName<Name extends string> = Lowercase<Name> extends `${QueryPrefix}${string}` ? true : false;
 
-/** `Q`/`M` are unions of explicitly-overridden method names. */
+/** `Q`/`M` are unions of explicitly overridden method names. */
 type IsQuery<Name extends string, Q extends string, M extends string> = Name extends Q
     ? true
     : Name extends M

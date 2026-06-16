@@ -1,54 +1,32 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { multiply } from 'rn-sak';
-import { createRestApi, Delete, Get, Post, Put } from 'rn-sak/rest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useSignIn } from './services';
 
-const result = multiply(3, 7);
+const queryClient = new QueryClient();
 
-type User = {
-    id: string;
-    name: string;
-    email: string;
-};
+export default () => (
+    <QueryClientProvider client={queryClient}>
+        <Content />
+    </QueryClientProvider>
+);
 
-type CreateUserDto = {
-    name: string;
-    email: string;
-};
+const Content = () => {
+    const { mutate, data, error } = useSignIn();
 
-type UpdateUserDto = {
-    name?: string;
-    email?: string;
-};
+    useEffect(() => {
+        mutate({ body: { email: 'vegidio@gmail.com', password: 'password1' } });
+    }, [mutate]);
 
-class UserApiClass {
-    @Get('/users')
-    listUsers!: (vars?: { query?: { page?: number } }) => User[];
-
-    @Get('/users/:id')
-    getUser!: (vars: { params: { id: string } }) => User;
-
-    @Post('/users')
-    createUser!: (vars: { body: CreateUserDto }) => User;
-
-    @Put('/users/:id')
-    updateUser!: (vars: { params: { id: string }; body: UpdateUserDto }) => User;
-
-    @Delete('/users/:id')
-    deleteUser!: (vars: { params: { id: string } }) => void;
-}
-
-export default function App() {
-    const api = createRestApi(UserApiClass, { baseURL: 'https://api.example.com' });
-    const { isLoading, data, error } = api.useGetUser({ params: { id: '42' } });
-
-    console.log(isLoading, data, error);
+    console.log('data', JSON.stringify(data));
+    console.log('error', JSON.stringify(error));
 
     return (
         <View style={styles.container}>
-            <Text>Result: {result}</Text>
+            <Text>Result: {data?.accessToken}</Text>
         </View>
     );
-}
+};
 
 const styles = StyleSheet.create({
     container: {

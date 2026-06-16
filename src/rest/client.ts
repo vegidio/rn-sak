@@ -15,9 +15,7 @@ const PATH_PARAM = /:([A-Za-z0-9_]+)/g;
 const applyPath = (template: string, params: RequestVars['params']): string =>
     template.replace(PATH_PARAM, (_match, key: string) => {
         const value = params?.[key];
-        if (value === undefined || value === null) {
-            throw new Error(`Missing path param ":${key}" for "${template}"`);
-        }
+        if (value === undefined || value === null) throw new Error(`Missing path param ":${key}" for "${template}"`);
         return encodeURIComponent(String(value));
     });
 
