@@ -30,6 +30,28 @@ export type RequestVars = {
     headers?: Record<string, string>;
 };
 
+/**
+ * Default retry behaviour for an API. Mirrors TanStack Query's `retry`/`retryDelay`
+ * options; the `retry`/`retryDelay` types are compatible between queries and
+ * mutations, so a single shape covers both hook kinds. Any value set here is a
+ * default that a per-hook `retry`/`retryDelay` option overrides.
+ */
+export type RetryPolicy = Pick<UseQueryOptions<unknown, Error, unknown>, 'retry' | 'retryDelay'>;
+
+/**
+ * Default in-memory cache policy for an API. `ttl` (ms) maps to TanStack Query's
+ * `staleTime` and `gcTime`; `maxEntries` caps how many inactive (unmounted) cached
+ * query entries are retained per API, enforced by approximate-LRU eviction.
+ */
+export type CachePolicy = { ttl?: number; maxEntries?: number };
+
+/**
+ * Per-request cache override carried on a query hook's options. Set a `ttl` to
+ * override the API default for that call, or `false` to disable caching entirely
+ * for that call (ignoring the API default). `maxEntries` stays API-wide.
+ */
+export type CacheOverride = { cache?: false | Pick<CachePolicy, 'ttl'> };
+
 export type RestApiConfig = {
     baseURL: string;
     /** Default headers applied to every request. */
@@ -43,6 +65,18 @@ export type RestApiConfig = {
     mutations?: readonly string[];
     /** Method names to force to query hooks. Use `as const`. */
     queries?: readonly string[];
+    /**
+     * Default retry policy applied to every query and mutation hook of this API.
+     * Overridable per call via the hook's `retry`/`retryDelay` option.
+     */
+    retry?: RetryPolicy['retry'];
+    retryDelay?: RetryPolicy['retryDelay'];
+    /**
+     * Default cache policy applied to every query hook of this API. `cache.ttl`
+     * (ms) is overridable per call via the hook's `cache` option; `cache.maxEntries`
+     * is API-wide. Mutations are never cached.
+     */
+    cache?: CachePolicy;
 };
 
 // --- Type-level hook mapping ---------------------------------------------------
@@ -54,7 +88,7 @@ export type RestApiConfig = {
  * the trailing TanStack options argument.
  */
 export type QueryHook<P extends readonly unknown[], R> = (
-    ...args: [...P, options?: Omit<UseQueryOptions<R, Error, R>, 'queryKey' | 'queryFn'>]
+    ...args: [...P, options?: Omit<UseQueryOptions<R, Error, R>, 'queryKey' | 'queryFn'> & CacheOverride]
 ) => UseQueryResult<R, Error>;
 
 /**

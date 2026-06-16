@@ -6,9 +6,13 @@ class AuthService {
     signIn!: (vars: { body: SignInRequest }) => AuthResponse;
 
     @Get('/api/v1/auth/refresh')
-    getRefreshToken!: () => AuthResponse;
+    refresh!: (vars?: { headers?: Record<string, string> }) => AuthResponse;
 }
 
-export const { useSignIn, useGetRefreshToken } = createRestApi(AuthService, {
+export const { useSignIn, useRefresh } = createRestApi(AuthService, {
     baseURL: 'https://countries.vinicius.io',
+    queries: ['refresh'],
+    retry: 2,
+    retryDelay: 1000,
+    cache: { ttl: 30000, maxEntries: 20 },
 });
