@@ -16,6 +16,7 @@ import type {
     RetryPolicy,
     SetHeaders,
 } from './types';
+import { installAuth } from './auth';
 import { installEviction } from './cache';
 import { createAxios, execute } from './client';
 import { getClassMeta } from './registry';
@@ -122,6 +123,12 @@ export const createRestApi = <T extends object, const Cfg extends RestApiConfig>
     const apiId = ApiClass.name;
     const hooks: Record<string, unknown> = {};
 
+    // Install auth interceptors only when there's something to inject or refresh; otherwise leave the
+    // request pipeline untouched. `close` tears down the preemptive timer (no-op when not configured).
+    const auth = config.auth;
+    const { close } =
+        auth && (auth.tokenProvider || auth.tokenRefresher) ? installAuth(client, auth) : { close: () => {} };
+
     // Build the default retry policy, omitting unset keys so they don't shadow
     // TanStack's own defaults. A per-hook `retry`/`retryDelay` still wins because
     // the hook factories spread these defaults before the caller's options.
@@ -148,5 +155,6 @@ export const createRestApi = <T extends object, const Cfg extends RestApiConfig>
         }
     };
 
-    return Object.assign(hooks, { setHeaders }) as RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>> & RestApiControls;
+    return Object.assign(hooks, { setHeaders, close }) as RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>> &
+        RestApiControls;
 };

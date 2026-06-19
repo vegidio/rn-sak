@@ -14,5 +14,4 @@ export const { useSignIn, useRefresh } = createRestApi(AuthService, {
     queries: ['refresh'],
     retry: 2,
     retryDelay: 1_000,
-    cache: { ttl: 30_000, maxEntries: 20 },
 });

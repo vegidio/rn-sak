@@ -38,4 +38,9 @@ export const setRoute = (target: object, methodName: string, verb: HttpVerb, pat
     m.path = path;
 };
 
+/** Called by `@SkipAuth`. Order-independent with the verb decorator — both patch the same entry. */
+export const setSkipAuth = (target: object, methodName: string): void => {
+    methodMeta(ctorOf(target), methodName).skipAuth = true;
+};
+
 export const getClassMeta = (ctor: object): ClassMeta | undefined => registry.get(ctor);

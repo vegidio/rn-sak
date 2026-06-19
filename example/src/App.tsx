@@ -13,7 +13,7 @@ export default () => (
 
 const Content = () => {
     const { mutate, data, error } = useSignIn();
-    const tokens = useRefresh({ headers: { Authorization: `Bearer ${data?.accessToken}` } }, { cache: false });
+    const tokens = useRefresh({ headers: { Authorization: `Bearer ${data?.accessToken}` } });
 
     useEffect(() => {
         mutate({ body: { email: 'vegidio@gmail.com', password: 'password1' } });

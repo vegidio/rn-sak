@@ -1,4 +1,5 @@
 export type {
+    AuthPolicy,
     CacheOverride,
     CachePolicy,
     Ctor,
@@ -10,4 +11,4 @@ export type {
     RestApiConfig,
 } from './types';
 export { createRestApi } from './createRestApi';
-export { Delete, Get, Patch, Post, Put } from './decorators';
+export { Delete, Get, Patch, Post, Put, SkipAuth } from './decorators';

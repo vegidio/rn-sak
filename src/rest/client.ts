@@ -2,6 +2,17 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import axios from 'axios';
 import type { MethodMeta, RequestVars, RestApiConfig } from './types';
 
+/**
+ * Request config carrying the contract metadata, so the auth interceptors can read the originating method's `skipAuth`
+ * flag, and a once-only retry marker. axios preserves these extra props through the interceptor chain and onto
+ * `error.config`.
+ */
+export type RequestConfigWithMeta = AxiosRequestConfig & {
+    meta?: MethodMeta;
+    /** Set once by the response interceptor to enforce the retry-once guard. */
+    authRetried?: boolean;
+};
+
 export const createAxios = (config: RestApiConfig): AxiosInstance =>
     axios.create({
         baseURL: config.baseURL,
@@ -19,10 +30,12 @@ const applyPath = (template: string, params: RequestVars['params']): string =>
         return encodeURIComponent(String(value));
     });
 
-export const buildRequest = (meta: MethodMeta, vars: RequestVars = {}): AxiosRequestConfig => {
-    const request: AxiosRequestConfig = {
+export const buildRequest = (meta: MethodMeta, vars: RequestVars = {}): RequestConfigWithMeta => {
+    const request: RequestConfigWithMeta = {
         method: meta.verb,
         url: applyPath(meta.path, vars.params),
+        // Tag the request so the auth interceptors can read this method's `skipAuth` flag.
+        meta,
     };
 
     if (vars.query && Object.keys(vars.query).length > 0) request.params = vars.query;

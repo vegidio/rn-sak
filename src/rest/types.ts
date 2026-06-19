@@ -1,5 +1,5 @@
 import type { UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import type { AxiosRequestConfig } from 'axios';
+import type { AxiosError, AxiosRequestConfig } from 'axios';
 
 // --- Runtime metadata ---------------------------------------------------------
 
@@ -10,6 +10,8 @@ export type MethodMeta = {
     verb: HttpVerb;
     /** Path template, e.g. `/users/:id`. */
     path: string;
+    /** Set by `@SkipAuth`: exclude this method from token injection and reactive refresh. */
+    skipAuth?: boolean;
 };
 
 /** Keyed by method name. */
@@ -49,6 +51,38 @@ export type CachePolicy = { ttl?: number; maxEntries?: number };
  */
 export type CacheOverride = { cache?: false | Pick<CachePolicy, 'ttl'> };
 
+/**
+ * Automatic authentication policy. When set, the API installs axios interceptors that inject a token on every request
+ * (skippable per method with `@SkipAuth`) and transparently refresh it when a request fails because the token expired.
+ *
+ * The token value is written to the `Authorization` header verbatim, so the callbacks decide the scheme: return
+ * `"Bearer <jwt>"`, `"Token <x>"`, or a raw credential — whatever the API expects.
+ */
+export type AuthPolicy = {
+    /**
+     * Supplies the current `Authorization` header value (including any scheme, e.g. `Bearer <jwt>`), used to seed the
+     * in-memory token on the first request. Once seeded, `tokenRefresher` is the source of later tokens. May be sync or
+     * async.
+     */
+    tokenProvider?: () => string | undefined | Promise<string | undefined>;
+    /**
+     * Performs the token refresh and returns the new `Authorization` header value, or `undefined` if the refresh
+     * failed. The library caches the returned value and retries the original request with it.
+     */
+    tokenRefresher?: () => Promise<string | undefined>;
+    /**
+     * Milliseconds before the JWT's `exp` to refresh proactively. Omit (or `0`) to disable. Requires `tokenRefresher`.
+     * Integrates with React Native `AppState`: the timer is cleared while the app is backgrounded and re-evaluated when
+     * it returns to the foreground.
+     */
+    preemptiveRefresh?: number;
+    /**
+     * What counts as an auth failure that should trigger a refresh. A list of HTTP status codes matched against
+     * `error.response.status`, or a predicate over the `AxiosError`. Defaults to `[401]`.
+     */
+    refreshOn?: number[] | ((error: AxiosError) => boolean);
+};
+
 export type RestApiConfig = {
     baseURL: string;
     /** Default headers applied to every request. */
@@ -74,13 +108,21 @@ export type RestApiConfig = {
      * is API-wide. Mutations are never cached.
      */
     cache?: CachePolicy;
+    /**
+     * Automatic authentication: token injection and refresh-on-failure. When omitted, no auth
+     * interceptors are installed and request behavior is unchanged.
+     */
+    auth?: AuthPolicy;
 };
 
 /** Patch the API's runtime default headers. A value of `undefined` removes that header. */
 export type SetHeaders = (headers: Record<string, string | undefined>) => void;
 
-/** Imperative controls returned alongside the hooks. */
-export type RestApiControls = { setHeaders: SetHeaders };
+/**
+ * Imperative controls returned alongside the hooks. `close` tears down the preemptive-refresh timer
+ * and its `AppState` subscription; it is a no-op when preemptive refresh is not configured.
+ */
+export type RestApiControls = { setHeaders: SetHeaders; close: () => void };
 
 // --- Type-level hook mapping ---------------------------------------------------
 
