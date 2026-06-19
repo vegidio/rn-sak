@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { QueryClient } from '@tanstack/react-query';
-import type { AxiosInstance } from 'axios';
+import type { AxiosAdapter, AxiosInstance, AxiosRequestConfig } from 'axios';
 import type { MethodMeta } from '../types';
 import { enforceMaxEntries } from '../cache';
 import { buildRequest, execute } from '../client';
-// Imported via relative paths (rather than the `rn-sak/rest` subpath) so the test,
-// the factory, the decorators, the registry, and the TanStack mock below all share a
-// single module graph — the subpath resolves to a separate root where the mock and the
-// decorator registry would not line up.
+// Imported via relative paths (rather than the `rn-sak/rest` subpath) so the test, the factory, the decorators, the
+// registry, and the TanStack mock below all share a single module graph — the subpath resolves to a separate root where
+// the mock and the decorator registry would not line up.
 import { createRestApi } from '../createRestApi';
 import { Delete, Get, Post, Put } from '../decorators';
 import { getClassMeta } from '../registry';
@@ -225,6 +224,90 @@ describe('cache policy', () => {
 
         expect(options.staleTime).toBe(0);
         expect(options.gcTime).toBe(0);
+    });
+});
+
+describe('default headers', () => {
+    const baseURL = 'https://api.example.com';
+
+    // Capture each request axios is about to send, after its own header merge, by
+    // standing in for the network adapter. Returns a minimal successful response.
+    const captureAdapter = (seen: AxiosRequestConfig[]): AxiosAdapter =>
+        (async (config: AxiosRequestConfig) => {
+            seen.push(config);
+            return { data: { id: '1', name: 'Bob' }, status: 200, statusText: 'OK', headers: {}, config };
+        }) as unknown as AxiosAdapter;
+
+    const runQuery = async (api: { useGetUser: (vars: { params: { id: string } }) => unknown }) => {
+        const options = api.useGetUser({ params: { id: '1' } }) as { queryFn: () => Promise<unknown> };
+        await options.queryFn();
+    };
+
+    const headerValue = (config: AxiosRequestConfig | undefined, name: string): unknown => {
+        const headers = config?.headers as unknown as { get: (n: string) => unknown } | undefined;
+        return headers?.get(name);
+    };
+
+    it('applies headers set after creation to subsequent requests', async () => {
+        const seen: AxiosRequestConfig[] = [];
+        const api = createRestApi(UserApi, { baseURL, axios: { adapter: captureAdapter(seen) } });
+
+        api.setHeaders({ Authorization: 'Bearer token' });
+        await runQuery(api);
+
+        expect(headerValue(seen[0], 'Authorization')).toBe('Bearer token');
+    });
+
+    it('merges successive setHeaders calls rather than replacing them', async () => {
+        const seen: AxiosRequestConfig[] = [];
+        const api = createRestApi(UserApi, { baseURL, axios: { adapter: captureAdapter(seen) } });
+
+        api.setHeaders({ Authorization: 'Bearer token' });
+        api.setHeaders({ 'X-App': 'rn-sak' });
+        await runQuery(api);
+
+        expect(headerValue(seen[0], 'Authorization')).toBe('Bearer token');
+        expect(headerValue(seen[0], 'X-App')).toBe('rn-sak');
+    });
+
+    it('removes a header when its value is undefined', async () => {
+        const seen: AxiosRequestConfig[] = [];
+        const api = createRestApi(UserApi, { baseURL, axios: { adapter: captureAdapter(seen) } });
+
+        api.setHeaders({ Authorization: 'Bearer token' });
+        api.setHeaders({ Authorization: undefined });
+        await runQuery(api);
+
+        expect(headerValue(seen[0], 'Authorization')).toBeUndefined();
+    });
+
+    it('lets a per-request header override a runtime default', async () => {
+        const seen: AxiosRequestConfig[] = [];
+        const api = createRestApi(UserApi, { baseURL, axios: { adapter: captureAdapter(seen) } });
+
+        api.setHeaders({ Authorization: 'Bearer default' });
+        // `getUser`'s contract declares no per-request headers, but they are supported at
+        // runtime (buildRequest forwards vars.headers); cast to exercise the override path.
+        const vars = { params: { id: '1' }, headers: { Authorization: 'Bearer override' } };
+        const options = api.useGetUser(vars as { params: { id: string } }) as unknown as {
+            queryFn: () => Promise<unknown>;
+        };
+        await options.queryFn();
+
+        expect(headerValue(seen[0], 'Authorization')).toBe('Bearer override');
+    });
+
+    it('applies runtime headers to mutation hooks too', async () => {
+        const seen: AxiosRequestConfig[] = [];
+        const api = createRestApi(UserApi, { baseURL, axios: { adapter: captureAdapter(seen) } });
+
+        api.setHeaders({ Authorization: 'Bearer token' });
+        const options = api.useCreateUser() as unknown as {
+            mutationFn: (vars: { body: CreateUserDto }) => Promise<unknown>;
+        };
+        await options.mutationFn({ body: { name: 'Alice' } });
+
+        expect(headerValue(seen[0], 'Authorization')).toBe('Bearer token');
     });
 });
 

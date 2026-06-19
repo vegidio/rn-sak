@@ -12,7 +12,9 @@ import type {
     RequestVars,
     RestApi,
     RestApiConfig,
+    RestApiControls,
     RetryPolicy,
+    SetHeaders,
 } from './types';
 import { installEviction } from './cache';
 import { createAxios, execute } from './client';
@@ -34,11 +36,10 @@ type QueryOptions = Omit<UseQueryOptions<unknown, Error, unknown>, 'queryKey' | 
 const VARS_KEYS = ['params', 'query', 'body', 'headers'] as const;
 
 /**
- * A query hook's first argument is `vars`, its second is options. With two arguments the
- * split is unambiguous. With one we can't rely on position — a contract method that takes
- * no `vars` collapses its type to `(options?)` — so we sniff the argument's shape: anything
- * carrying a vars-shaped key is treated as `vars`, otherwise as options. (An object mixing
- * both kinds of keys is read as `vars`; pass the two-argument form to combine them.)
+ * A query hook's first argument is `vars`, its second is options. With two arguments, the split is unambiguous. With
+ * one, we can't rely on position — a contract method that takes no `vars` collapses its type to `(options?)` — so we
+ * sniff the argument's shape: anything carrying a vars-shaped key is treated as `vars`, otherwise as options. (An
+ * object mixing both kinds of keys is read as `vars`; pass the two-argument form to combine them.)
  */
 const resolveQueryArgs = (
     arg1?: RequestVars | QueryOptions,
@@ -106,11 +107,14 @@ const makeMutationHook = (client: AxiosInstance, apiId: string, meta: MethodMeta
  * const api = createRestApi(UserApi, { baseURL: 'https://api.example.com' });
  * const { data } = api.useGetUser({ params: { id: '42' } });
  * api.useCreateUser().mutate({ body: { name: 'Alice' } });
+ *
+ * // Update default headers after creation; every hook picks them up automatically.
+ * api.setHeaders({ Authorization: 'Bearer …' });
  */
 export const createRestApi = <T extends object, const Cfg extends RestApiConfig>(
     ApiClass: Ctor<T>,
     config: Cfg,
-): RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>> => {
+): RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>> & RestApiControls => {
     const meta = getClassMeta(ApiClass);
     if (!meta) throw new Error(`No REST metadata found on ${ApiClass.name}. Did the decorators run?`);
 
@@ -133,5 +137,16 @@ export const createRestApi = <T extends object, const Cfg extends RestApiConfig>
             : makeMutationHook(client, apiId, methodMeta, defaults);
     }
 
-    return hooks as RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>>;
+    // Patch the shared axios instance's common headers. Every hook closes over this
+    // same `client`, so the change applies to all subsequent requests. A per-request
+    // `vars.headers` still wins (axios merges request config over the defaults).
+    const setHeaders: SetHeaders = (headers) => {
+        const common = client.defaults.headers.common;
+        for (const [key, value] of Object.entries(headers)) {
+            if (value === undefined) delete common[key];
+            else common[key] = value;
+        }
+    };
+
+    return Object.assign(hooks, { setHeaders }) as RestApi<T, QueriesOf<Cfg>, MutationsOf<Cfg>> & RestApiControls;
 };

@@ -5,10 +5,10 @@ import type { QueryClient } from '@tanstack/react-query';
 const registry = new WeakMap<QueryClient, Set<string>>();
 
 /**
- * Trim an API's cached query entries down to `maxEntries`. TanStack's `QueryCache` is
- * the source of truth — we only remove the overflow. Eviction targets inactive
- * (unmounted) entries, oldest first, so a mounted query is never ripped out from under
- * a component; `maxEntries` is therefore a soft cap on retained-but-unused entries.
+ * Trim an API's cached query entries down to `maxEntries`. TanStack's `QueryCache` is the source of truth — we only
+ * remove the overflow. Eviction targets inactive (unmounted) entries, oldest first, so a mounted query is never ripped
+ * out from under a component; `maxEntries` is therefore a soft cap on retained-but-unused entries.
+ *
  * Ordering is by `dataUpdatedAt` (last write), an approximate LRU.
  */
 export const enforceMaxEntries = (queryClient: QueryClient, apiId: string, maxEntries: number): void => {
@@ -26,10 +26,9 @@ export const enforceMaxEntries = (queryClient: QueryClient, apiId: string, maxEn
 };
 
 /**
- * Install a permanent cache subscriber that enforces `maxEntries` for `apiId` on the
- * given client, idempotently — only the first call per (client, apiId) subscribes. The
- * subscriber reacts only to this API's `added` events (the one count-growing event) and
- * the returned unsubscribe is intentionally discarded.
+ * Install a permanent cache subscriber that enforces `maxEntries` for `apiId` on the given client, idempotently — only
+ * the first call per (client, apiId) subscribes. The subscriber reacts only to this API's `added` events (the one
+ * count-growing event), and the returned unsubscribe is intentionally discarded.
  */
 export const installEviction = (queryClient: QueryClient, apiId: string, maxEntries: number): void => {
     let installed = registry.get(queryClient);

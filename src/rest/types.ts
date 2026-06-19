@@ -31,24 +31,21 @@ export type RequestVars = {
 };
 
 /**
- * Default retry behaviour for an API. Mirrors TanStack Query's `retry`/`retryDelay`
- * options; the `retry`/`retryDelay` types are compatible between queries and
- * mutations, so a single shape covers both hook kinds. Any value set here is a
+ * Default retry behavior for an API. Mirrors TanStack Query's `retry`/`retryDelay` options; the `retry`/`retryDelay`
+ * types are compatible between queries and mutations, so a single shape covers both hook kinds. Any value set here is a
  * default that a per-hook `retry`/`retryDelay` option overrides.
  */
 export type RetryPolicy = Pick<UseQueryOptions<unknown, Error, unknown>, 'retry' | 'retryDelay'>;
 
 /**
- * Default in-memory cache policy for an API. `ttl` (ms) maps to TanStack Query's
- * `staleTime` and `gcTime`; `maxEntries` caps how many inactive (unmounted) cached
- * query entries are retained per API, enforced by approximate-LRU eviction.
+ * Default in-memory cache policy for an API. `ttl` (ms) maps to TanStack Query's `staleTime` and `gcTime`; `maxEntries`
+ * caps how many inactive (unmounted) cached query entries are retained per API, enforced by approximate-LRU eviction.
  */
 export type CachePolicy = { ttl?: number; maxEntries?: number };
 
 /**
- * Per-request cache override carried on a query hook's options. Set a `ttl` to
- * override the API default for that call, or `false` to disable caching entirely
- * for that call (ignoring the API default). `maxEntries` stays API-wide.
+ * Per-request cache override carried on a query hook's options. Set a `ttl` to override the API default for that call,
+ * or `false` to disable caching entirely for that call (ignoring the API default). `maxEntries` stays API-wide.
  */
 export type CacheOverride = { cache?: false | Pick<CachePolicy, 'ttl'> };
 
@@ -79,21 +76,26 @@ export type RestApiConfig = {
     cache?: CachePolicy;
 };
 
+/** Patch the API's runtime default headers. A value of `undefined` removes that header. */
+export type SetHeaders = (headers: Record<string, string | undefined>) => void;
+
+/** Imperative controls returned alongside the hooks. */
+export type RestApiControls = { setHeaders: SetHeaders };
+
 // --- Type-level hook mapping ---------------------------------------------------
 
 /**
- * Query hook. `P` is the contract method's parameter tuple (e.g.
- * `[vars: { params: { id: string } }]`), forwarded verbatim so the hook keeps
- * the exact `vars` shape — including whether it is required or optional — before
- * the trailing TanStack options argument.
+ * Query hook. `P` is the contract method's parameter tuple (e.g. `[vars: { params: { id: string } }]`), forwarded
+ * verbatim so the hook keeps the exact `vars` shape — including whether it is required or optional — before the
+ * trailing TanStack options argument.
  */
 export type QueryHook<P extends readonly unknown[], R> = (
     ...args: [...P, options?: Omit<UseQueryOptions<R, Error, R>, 'queryKey' | 'queryFn'> & CacheOverride]
 ) => UseQueryResult<R, Error>;
 
 /**
- * Mutation hook. Mutation variables are passed to `mutate`, not to the hook, so
- * `V` (the contract method's `vars` type) parameterizes the mutation result.
+ * Mutation hook. Mutation variables are passed to `mutate`, not to the hook, so `V` (the contract method's `vars` type)
+ * parameterizes the mutation result.
  */
 export type MutationHook<V, R> = (
     options?: Omit<UseMutationOptions<R, Error, V>, 'mutationFn'>,

@@ -13,6 +13,6 @@ export const { useSignIn, useRefresh } = createRestApi(AuthService, {
     baseURL: 'https://countries.vinicius.io',
     queries: ['refresh'],
     retry: 2,
-    retryDelay: 1000,
-    cache: { ttl: 30000, maxEntries: 20 },
+    retryDelay: 1_000,
+    cache: { ttl: 30_000, maxEntries: 20 },
 });
