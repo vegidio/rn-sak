@@ -67,12 +67,16 @@ const makeQueryHook =
         const ttlOpts: Partial<Pick<UseQueryOptions<unknown, Error, unknown>, 'staleTime' | 'gcTime'>> =
             effectiveTtl !== undefined ? { staleTime: effectiveTtl, gcTime: effectiveTtl } : {};
 
+        // apiId/cache are stable for this hook's lifetime, so the effect only needs to re-run when the client changes —
+        // those values are deliberately omitted from the deps.
         useEffect(() => {
             if (cache?.maxEntries === undefined) return;
             installEviction(queryClient, apiId, cache.maxEntries);
         }, [queryClient]);
 
         return useQuery({
+            // Cache key is params+query only; `headers`/`body` are intentionally excluded, so a query whose result
+            // varies by those will collide. (See README "Query keys & invalidation".)
             queryKey: [apiId, meta.methodName, vars.params ?? null, vars.query ?? null],
             queryFn: () => execute<unknown>(client, meta, vars),
             ...defaults,

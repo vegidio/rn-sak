@@ -63,12 +63,17 @@ export const installAuth = (client: AxiosInstance, auth: AuthPolicy): { close: (
         const exp = decodeJwtExp(currentToken);
         if (exp === undefined) return;
 
+        // Background refreshes are best-effort: swallow failures so they don't surface as unhandled rejections.
+        // The reactive 401 refresh remains the backstop.
+        const fireRefresh = (): void => void refreshOnce().catch(() => {});
+
         const delay = exp - (preemptiveRefresh as number) - Date.now();
         if (delay <= 0) {
-            void refreshOnce();
+            fireRefresh();
             return;
         }
-        timer = setTimeout(() => void refreshOnce(), delay);
+
+        timer = setTimeout(fireRefresh, delay);
     };
 
     const setToken = (token: string | undefined): void => {
@@ -143,7 +148,7 @@ export const installAuth = (client: AxiosInstance, auth: AuthPolicy): { close: (
 
     // Seed eagerly at startup (matching a "token provided at launch" model) so preemptive scheduling can
     // begin before the first request. Subsequent requests reuse the in-flight/cached seed.
-    if (tokenProvider) void ensureSeeded();
+    if (tokenProvider) void ensureSeeded().catch(() => {});
 
     if (preemptiveEnabled) {
         appStateSub = AppState.addEventListener('change', (state: AppStateStatus) => {
