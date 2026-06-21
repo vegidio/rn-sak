@@ -62,9 +62,10 @@ your own `onSuccess` — it runs in addition to the built-in invalidation.
 ## Authentication
 
 Pass an `auth` config to inject a token on every request and transparently refresh it when a request
-fails because the token expired. The API holds the current token in memory; you supply it via callbacks
-and never touch headers by hand. The value you return is written to the `Authorization` header
-**verbatim**, so you choose the scheme — `Bearer <jwt>`, `Token <x>`, or a raw credential.
+fails because the token expired. `tokenProvider` is read **live on every request**, so a token kept in
+a reactive store/state/variable is always reflected; you supply it (and the refresh) via callbacks and
+never touch headers by hand. The value you return is written to the `Authorization` header **verbatim**,
+so you choose the scheme — `Bearer <jwt>`, `Token <x>`, or a raw credential.
 
 ```ts
 import { createRestApi, Get, Post, SkipAuth } from 'rn-sak/rest';
@@ -78,11 +79,13 @@ class Api {
 const api = createRestApi(Api, {
     baseURL: 'https://api.example.com',
     auth: {
-        // Seeds the in-memory token at startup. Return the full Authorization value (e.g. "Bearer <jwt>").
+        // Read on every request — keep it lightweight (a plain in-memory read). Return the full
+        // Authorization value (e.g. "Bearer <jwt>").
         tokenProvider: () => `Bearer ${storage.getAccessToken()}`,
 
         // Called on an auth failure (default: HTTP 401). Return the NEW Authorization value — the
-        // library caches it and retries the failed request with it. Return `undefined` to signal failure.
+        // library retries the failed request with it (even though we also persist it below) and keeps
+        // it until `tokenProvider` returns a new value. Return `undefined` to signal failure.
         tokenRefresher: async () => {
             const refreshToken = await storage.getRefreshToken();
             if (!refreshToken) return undefined;
@@ -97,11 +100,15 @@ const api = createRestApi(Api, {
 ```
 
 > `storage` above is **your** persistence (MMKV, SecureStore, AsyncStorage, …) — it is not part of this
-> library. `rn-sak` only calls the callbacks and caches the returned token in memory.
+> library. `rn-sak` only calls the callbacks; it holds a refreshed token until `tokenProvider` next
+> returns a new value.
 
-- **`tokenProvider`** — supplies the initial `Authorization` value (with scheme); seeded once at startup.
+- **`tokenProvider`** — supplies the `Authorization` value (with scheme), read **live on every request**
+  so reactive sources are always reflected. Keep it quick and lightweight — it runs on every request's
+  hot path; avoid slow/expensive access (network, disk, secure storage, decryption).
 - **`tokenRefresher`** — performs the refresh and returns the new `Authorization` value (or `undefined`
-  on failure). Concurrent failures share a single refresh (single-flight), and each request is retried
+  on failure). The returned value is what retries the failed request, so return it even if you also
+  persist it. Concurrent failures share a single refresh (single-flight), and each request is retried
   **at most once** to avoid loops.
 - **`preemptiveRefresh`** — milliseconds before the JWT's `exp` to refresh proactively. It is
   React-Native–aware: the timer is cleared while the app is backgrounded (JS timers don't fire

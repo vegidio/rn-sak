@@ -153,6 +153,23 @@ describe('token injection', () => {
         expect(authOf(last(seen))).toBe('Bearer async-token');
     });
 
+    it('reads tokenProvider live on every request (reflects a changed source)', async () => {
+        const seen: Seen = [];
+        let token = 'Bearer a';
+        const api = createRestApi(AuthApi, {
+            baseURL,
+            axios: { adapter: always(seen, 200) },
+            auth: { tokenProvider: () => token },
+        });
+
+        await runQuery(api);
+        expect(authOf(last(seen))).toBe('Bearer a');
+
+        token = 'Bearer b';
+        await runQuery(api);
+        expect(authOf(last(seen))).toBe('Bearer b');
+    });
+
     it('writes the returned value to Authorization verbatim (any scheme)', async () => {
         const seen: Seen = [];
         const api = createRestApi(AuthApi, {
@@ -186,6 +203,29 @@ describe('reactive refresh', () => {
         expect(authOf(seen[0])).toBe('Bearer old-token');
         expect(authOf(seen[1])).toBe('Bearer new-token');
         expect(result).toEqual({ id: 'me' });
+    });
+
+    it('keeps a refreshed token for later requests until the provider changes', async () => {
+        const seen: Seen = [];
+        let token = 'Bearer old-token';
+        let calls = 0;
+        const refresher = jest.fn(async () => 'Bearer new-token');
+        const api = createRestApi(AuthApi, {
+            baseURL,
+            axios: { adapter: adapterOf(seen, () => (calls++ === 0 ? 401 : 200)) },
+            auth: { tokenProvider: () => token, tokenRefresher: refresher },
+        });
+
+        await runQuery(api);
+        expect(authOf(seen[1])).toBe('Bearer new-token'); // retry uses refreshed token
+
+        await runQuery(api);
+        expect(authOf(last(seen))).toBe('Bearer new-token'); // persists (provider unchanged)
+
+        token = 'Bearer newer-token';
+        await runQuery(api);
+        expect(authOf(last(seen))).toBe('Bearer newer-token'); // provider change takes over
+        expect(refresher).toHaveBeenCalledTimes(1);
     });
 
     it('deduplicates concurrent refreshes (single-flight)', async () => {

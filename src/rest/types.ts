@@ -60,14 +60,24 @@ export type CacheOverride = { cache?: false | Pick<CachePolicy, 'ttl'> };
  */
 export type AuthPolicy = {
     /**
-     * Supplies the current `Authorization` header value (including any scheme, e.g. `Bearer <jwt>`), used to seed the
-     * in-memory token on the first request. Once seeded, `tokenRefresher` is the source of later tokens. May be sync or
-     * async.
+     * Supplies the current `Authorization` header value (including any scheme, e.g. `Bearer <jwt>`). It is read on
+     * **every** request, so a token kept in a reactive store, state, or variable is always reflected — update the source
+     * and the next request uses the new value. May be sync or async.
+     *
+     * Because it runs on the hot path of every request (and the request waits for its result), it must be **quick and
+     * lightweight** — ideally a plain in-memory read. Avoid slow or expensive work here (network calls, disk or
+     * secure-storage reads, decryption, heavy computation): it adds latency to every request and can noticeably degrade
+     * the app.
      */
     tokenProvider?: () => string | undefined | Promise<string | undefined>;
     /**
-     * Performs the token refresh and returns the new `Authorization` header value, or `undefined` if the refresh
-     * failed. The library caches the returned value and retries the original request with it.
+     * Performs the token refresh and returns the new `Authorization` header value, or `undefined` if the refresh failed.
+     *
+     * **Returning the token is required**, even if you also write it back to the reactive source `tokenProvider` reads
+     * from: the library injects the returned value to retry the failed request immediately — independent of when (or
+     * whether) that source updates — and keeps it in effect until `tokenProvider` next returns a different value.
+     * Returning `undefined` rejects the original request without retrying. Concurrent failures share a single refresh
+     * (single-flight), and each request is retried at most once.
      */
     tokenRefresher?: () => Promise<string | undefined>;
     /**

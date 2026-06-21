@@ -28,19 +28,20 @@ const setAuthHeader = (config: RequestConfigWithMeta, token: string): void => {
 /**
  * Install token injection and refresh-on-failure on an axios instance.
  *
- * The current token is held in memory as the single source of truth: `tokenProvider` seeds it lazily
- * on the first request; `tokenRefresher` updates it. A request interceptor injects it (unless the
- * method is `@SkipAuth`); a response interceptor refreshes once and retries on an auth failure, with
- * single-flight dedup and a retry-once guard. With `preemptiveRefresh` set, an `AppState`-aware timer
- * refreshes the token before it expires. Returns a `close` that tears the timer/subscription down.
+ * `tokenProvider` is read live on every request, so a token kept in a reactive store/state/variable is
+ * always reflected. A token produced by `tokenRefresher`/preemptive refresh overrides that live value
+ * until the provider's value next changes (tracked via `lastProvided`), so a just-refreshed token isn't
+ * clobbered by a stale read. A request interceptor injects the token (unless the method is `@SkipAuth`);
+ * a response interceptor refreshes once and retries on an auth failure, with single-flight dedup and a
+ * retry-once guard. With `preemptiveRefresh` set, an `AppState`-aware timer refreshes the token before
+ * it expires. Returns a `close` that tears the timer/subscription down.
  */
 export const installAuth = (client: AxiosInstance, auth: AuthPolicy): { close: () => void } => {
     const { tokenProvider, tokenRefresher, preemptiveRefresh, refreshOn } = auth;
     const preemptiveEnabled = !!tokenRefresher && !!preemptiveRefresh && preemptiveRefresh > 0;
 
     let currentToken: string | undefined;
-    let seeded = false;
-    let seedPromise: Promise<void> | undefined;
+    let lastProvided: string | undefined;
     let refreshPromise: Promise<string | undefined> | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let appStateSub: EventSubscription | undefined;
@@ -78,7 +79,6 @@ export const installAuth = (client: AxiosInstance, auth: AuthPolicy): { close: (
 
     const setToken = (token: string | undefined): void => {
         currentToken = token;
-        seeded = true;
         schedulePreemptive();
     };
 
@@ -99,29 +99,26 @@ export const installAuth = (client: AxiosInstance, auth: AuthPolicy): { close: (
         return refreshPromise;
     };
 
-    // Seed the in-memory token once from `tokenProvider` (single-flight), without clobbering a token a
-    // concurrent refresh may have already set while we awaited.
-    const ensureSeeded = (): Promise<void> => {
-        if (seeded || !tokenProvider) return Promise.resolve();
-        if (!seedPromise) {
-            seedPromise = Promise.resolve()
-                .then(() => tokenProvider())
-                .then((token) => {
-                    if (!seeded) setToken(token);
-                })
-                .finally(() => {
-                    seedPromise = undefined;
-                });
+    // Read the live token from `tokenProvider` on every call so a reactive source (store/state/variable)
+    // is always reflected. A token set by `tokenRefresher`/preemptive refresh stays in effect until the
+    // provider's value actually changes (tracked via `lastProvided`), so a just-refreshed token isn't
+    // clobbered by a stale read.
+    const resolveToken = async (): Promise<string | undefined> => {
+        if (!tokenProvider) return currentToken;
+        const live = await tokenProvider();
+        if (live !== lastProvided) {
+            lastProvided = live;
+            setToken(live);
         }
-        return seedPromise;
+        return currentToken;
     };
 
     client.interceptors.request.use(async (config) => {
         const meta = (config as RequestConfigWithMeta).meta;
         if (meta?.skipAuth) return config;
 
-        await ensureSeeded();
-        if (currentToken) setAuthHeader(config as RequestConfigWithMeta, currentToken);
+        const token = await resolveToken();
+        if (token) setAuthHeader(config as RequestConfigWithMeta, token);
         return config;
     });
 
@@ -146,9 +143,9 @@ export const installAuth = (client: AxiosInstance, auth: AuthPolicy): { close: (
         return client.request(config);
     });
 
-    // Seed eagerly at startup (matching a "token provided at launch" model) so preemptive scheduling can
-    // begin before the first request. Subsequent requests reuse the in-flight/cached seed.
-    if (tokenProvider) void ensureSeeded().catch(() => {});
+    // Read eagerly at startup only to arm the preemptive timer before the first request; otherwise the
+    // token is resolved live per request.
+    if (tokenProvider && preemptiveEnabled) void resolveToken().catch(() => {});
 
     if (preemptiveEnabled) {
         appStateSub = AppState.addEventListener('change', (state: AppStateStatus) => {
