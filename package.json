@@ -23,19 +23,6 @@
     "files": [
         "src",
         "lib",
-        "android",
-        "ios",
-        "cpp",
-        "nitrogen",
-        "nitro.json",
-        "*.podspec",
-        "react-native.config.js",
-        "!ios/build",
-        "!android/build",
-        "!android/gradle",
-        "!android/gradlew",
-        "!android/gradlew.bat",
-        "!android/local.properties",
         "!**/__tests__",
         "!**/__fixtures__",
         "!**/__mocks__",
@@ -45,7 +32,6 @@
         "example": "pnpm --filter rn-sak-example",
         "clean": "del-cli lib",
         "prepare": "cross-env BROWSERSLIST_CONFIG=package.json bob build",
-        "nitrogen": "nitrogen",
         "lint": "biome check .",
         "format": "biome check --write .",
         "typecheck": "tsc",
@@ -81,19 +67,16 @@
         "cross-env": "7.0.3",
         "del-cli": "7.0.0",
         "jest": "29.7.0",
-        "nitrogen": "0.35.9",
         "react": "19.2.0",
         "react-native": "0.83.6",
         "react-native-builder-bob": "0.42.1",
-        "react-native-nitro-modules": "0.35.9",
         "turbo": "2.9.16",
         "typescript": "6.0.3"
     },
     "peerDependencies": {
         "@tanstack/react-query": ">=5",
         "react": "*",
-        "react-native": "*",
-        "react-native-nitro-modules": "0.35.9"
+        "react-native": "*"
     },
     "react-native-builder-bob": {
         "source": "src",
@@ -125,8 +108,8 @@
         ]
     },
     "create-react-native-library": {
-        "type": "nitro-module",
-        "languages": "kotlin-swift",
+        "type": "library",
+        "languages": "js",
         "tools": [
             "jest"
         ],
