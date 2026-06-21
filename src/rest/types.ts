@@ -93,6 +93,17 @@ export type AuthPolicy = {
     refreshOn?: number[] | ((error: AxiosError) => boolean);
 };
 
+/**
+ * Request/response logging. When set, the API installs axios interceptors that emit an OkHttp `BODY`-level dump — the
+ * request line, headers and body, then the response status line (with elapsed time), headers and body. When omitted,
+ * no logging interceptors are installed and the request pipeline is untouched.
+ *
+ * A function that receives one formatted, multi-line entry per request and per response. Called once with the request
+ * block (`--> …`) when a request is sent, and once with the response block (`<-- …`) when it settles (error responses
+ * included). Wire it to `console.log` in development, or to a custom sink.
+ */
+export type LoggingPolicy = (message: string) => void;
+
 export type RestApiConfig = {
     baseURL: string;
     /** Default headers applied to every request. */
@@ -123,6 +134,10 @@ export type RestApiConfig = {
      * interceptors are installed and request behavior is unchanged.
      */
     auth?: AuthPolicy;
+    /**
+     * Request/response logging (OkHttp `BODY` style). When omitted, no logging interceptors are installed.
+     */
+    logging?: LoggingPolicy;
 };
 
 /** Patch the API's runtime default headers. A value of `undefined` removes that header. */

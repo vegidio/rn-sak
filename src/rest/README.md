@@ -126,6 +126,46 @@ When `preemptiveRefresh` is set, call `api.close()` (returned alongside the hook
 cancel the background timer and its `AppState` subscription. Without auth configured, `close()` is a
 no-op and the request pipeline is untouched.
 
+## Logging
+
+Pass a `logging` config to trace every request and response, mirroring [OkHttp](https://square.github.io/okhttp/features/interceptors/)'s
+`HttpLoggingInterceptor` at `BODY` level. You supply a `logging` callback; the library calls it once with
+the request block when a request is sent and once with the response block when it settles (error
+responses included).
+
+```ts
+const api = createRestApi(Api, {
+    baseURL: 'https://api.example.com',
+    logging: console.log, // or a custom sink
+});
+```
+
+A `POST /greeting` then prints:
+
+```
+--> POST /greeting
+Content-Type: plain/text
+Content-Length: 3
+
+Hi?
+--> END POST
+
+<-- 200 OK (22ms)
+Content-Type: plain/text
+Content-Length: 6
+
+Hello!
+<-- END HTTP
+```
+
+- It pairs with `auth`: the logged request block includes the injected `Authorization` header.
+- Each refresh-and-retry attempt is logged as its own request/response pair, so a 401 followed by a
+  successful retry shows two exchanges.
+- A failure with no response (network error, timeout) logs a single `<-- HTTP FAILED: <message>` line.
+
+> `logging` runs on every request — keep it cheap, and gate it behind `__DEV__` (or omit `logging`
+> entirely) in production builds.
+
 ## Why function-typed fields?
 
 Each endpoint is a **definite-assignment field** (`name!: (vars) => Result`), not

@@ -19,6 +19,7 @@ import type {
 import { installAuth } from './auth';
 import { installEviction } from './cache';
 import { createAxios, execute } from './client';
+import { installLogging } from './logging';
 import { getClassMeta } from './registry';
 
 const pascal = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1);
@@ -126,6 +127,11 @@ export const createRestApi = <T extends object, const Cfg extends RestApiConfig>
     const client = createAxios(config);
     const apiId = ApiClass.name;
     const hooks: Record<string, unknown> = {};
+
+    // Install logging before auth: axios runs request interceptors LIFO, so the logging request interceptor
+    // (registered first) runs last and logs the auth-injected Authorization header; on the response side it
+    // logs each refresh-and-retry attempt as its own request/response pair.
+    if (config.logging) installLogging(client, config.logging);
 
     // Install auth interceptors only when there's something to inject or refresh; otherwise leave the
     // request pipeline untouched. `close` tears down the preemptive timer (no-op when not configured).

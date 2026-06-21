@@ -4,6 +4,7 @@ export type {
     CachePolicy,
     Ctor,
     HttpVerb,
+    LoggingPolicy,
     MutationHook,
     QueryHook,
     RequestVars,
